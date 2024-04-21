@@ -1,6 +1,29 @@
-FROM openjdk:17-alpine
-WORKDIR /app
-ENV PORT 8080
-EXPOSE 8080
-COPY target/*.jar /app/app.jar
-ENTRYPOINT exec java $JAVA_OPTS -jar app.jar
+version: 0.2
+
+env:
+  parameter-store:
+    DOCKER_REGISTRY_URL: /myapp/docker-credentials/docker_registry_url
+    DOCKER_REGISTRY_USER_NAME: /myapp/docker-credentials/docker_user_name
+    DOCKER_REGISTRY_USER_PASSWORD: /myapp/docker-credentials/docker_user_password
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto11
+  pre_build:
+    commands:
+      - echo "Pre Build Started"
+      - mvn install
+      - echo "Docker build images"
+      - docker login -username "$DOCKER_REGISTRY_USER_NAME" --password "$DOCKER_REGISTRY_USER_PASSWORD"
+      - docker build -t "$DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USER_NAME/helloworld:latest" .
+      - echo "Pre Build Success"
+  build:
+    commands:
+      - echo "Pushing Docker images"
+      - docker push "$DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USER_NAME/helloworld:latest" 
+      - docker run helloworld echo "Hello, World!" 
+
+artifacts:
+  files:
+    - target/messageUtil-1.0.jar
